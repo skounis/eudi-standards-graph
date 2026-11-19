@@ -19,8 +19,9 @@ Without make: `bash scripts/refresh.sh`, then `python3 -m http.server -d site 80
 
 ## How links are inferred
 
-- Registry: `CIR` label and a "CIR (EU) …" title = CIR Registry; an "Errata:" title = Errata Registry; "[TSx] …" or "TSx: …" titles, or issues with no `sts:` label and no standards-body prefix = feedback issues; everything else = STS Roadmap.
-- A `CIR (EU) yyyy/n` label on a standard = the CIR cites it.
-- Issue links in bodies: erratum → standard = corrects; CIR → CIR = amends; feedback → standard = raises; anything else = references.
+- Scope: issues labelled `wontfix` and feedback issues on specifications ("[TSx] …" or "TSx: …" titles, or issues with no `sts:` label and no standards-body prefix) are left out. `Withdrawn` entries are kept and marked.
+- Registry: `CIR` label and a "CIR (EU) …" title = CIR Registry; an "Errata:" title = Errata Registry; everything else = STS Roadmap.
+- A `CIR (EU) yyyy/n` label on a standard = the CIR cites it (arrow from CIR to standard).
+- Issue links in bodies: erratum → standard = corrects; CIR → CIR = amends; anything else = references. Arrows point from the issue that holds the link.
 
 Project fields (Status, Target Quarter, Responsible body) are not included yet; they need the Projects GraphQL API.
