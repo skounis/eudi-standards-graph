@@ -1,9 +1,12 @@
-# Publish site/ to GitHub Pages on every push to main (including merged pull requests).
+# Fetch the latest public issues, rebuild site/graph.json and publish site/ to GitHub Pages.
+# Runs on every push to main (including merged pull requests), daily, and by hand.
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 5 * * *"   # daily at 05:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -23,6 +26,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Refresh data from the public issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/refresh.sh
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
