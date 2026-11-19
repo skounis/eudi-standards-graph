@@ -2,6 +2,7 @@ import json,re,sys
 from collections import Counter
 src,out=sys.argv[1],sys.argv[2]
 d=[i for i in json.load(open(src)) if 'pull_request' not in i]
+# Out of scope: issues labelled wontfix (dropped from the roadmap)
 REPO='eu-digital-identity-wallet/eudi-doc-standards-and-technical-specifications'
 nodes={};edges=[]
 cirkey={}
@@ -13,6 +14,12 @@ def kind(i,L):
     if not any(l.startswith('sts:') for l in L) and not re.match(KNOWN,t): return 'signal'
     return 'sts'
 KNOWN=r'(ETSI|ISO|IETF|CEN|prCEN|FprCEN|EC |W3C|OIDF|OpenID|GlobalPlatform|DILCIS|ITU|Common Criteria|ENISA|CSC|FIDO|Eurosmart|RFC|Data Catalog|DTS|IANA|TS 18170|Verifiable|Data Integrity)'
+keep=[]
+for i in d:
+    L=[l['name'] for l in i['labels']]
+    if 'wontfix' in L or kind(i,L)=='signal': continue  # and feedback issues on specs
+    keep.append(i)
+d=keep
 for i in d:
     L=[l['name'] for l in i['labels']]
     k=kind(i,L)
@@ -35,7 +42,7 @@ for i in d:
         domain=[x[8:] for x in L if x.startswith('Domain: ')],
         cat=[x[5:] for x in L if x.startswith('Cat: ')],
         arts=[x for x in L if x.startswith('Art ')],
-        wontfix='wontfix' in L or 'Withdrawn' in L,
+        withdrawn='Withdrawn' in L,
         essential='Essential' in L,
         hasErrata='errata' in L and k=='sts',
         created=i['created_at'][:10],updated=i['updated_at'][:10],

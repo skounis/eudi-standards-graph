@@ -126,8 +126,6 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
     <div class="stage">
       <div class="toolbar">
         <input type="search" id="n-search" placeholder="Find a standard, CIR or erratum" aria-label="Find">
-        <label><input type="checkbox" id="n-sig"> Feedback issues</label>
-        <label><input type="checkbox" id="n-wf"> Withdrawn / wontfix</label>
         <label><input type="checkbox" id="n-iso"> Unlinked entries</label>
         <select id="n-dom" aria-label="Domain"><option value="">All domains</option></select>
         <button class="btn" id="n-back" hidden>Show whole map</button>
@@ -196,8 +194,8 @@ const label=n=>n.k==="errata"?"Erratum: "+n.s:n.s;
 
 // legend + footer
 const cnt=k=>nodes.filter(n=>n.k===k).length;
-document.getElementById("legend").innerHTML=Object.entries(KIND).map(([k,v])=>`<span><i class="${k==="cir"?"sq":"dot"}" style="background:${kc(k)}"></i>${v.name} (${cnt(k)})</span>`).join("");
-document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); links come from CIR labels on standards and from issue links in issue bodies. Read-only prototype.`;
+document.getElementById("legend").innerHTML=Object.entries(KIND).filter(([k])=>cnt(k)>0).map(([k,v])=>`<span><i class="${k==="cir"?"sq":"dot"}" style="background:${kc(k)}"></i>${v.name} (${cnt(k)})</span>`).join("");
+document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); issues labelled wontfix and feedback issues on specifications are left out; links come from CIR labels on standards and from issue links in issue bodies. Read-only prototype.`;
 
 // domains
 const doms=[...new Set(nodes.flatMap(n=>n.dom))].sort();
@@ -213,7 +211,7 @@ function renderDrawer(id){
     const groups={};
     adj.get(id).forEach(a=>{const key=REL[a.type][a.dir];(groups[key]=groups[key]||[]).push(byId.get(a.id));});
     const list=Object.entries(groups).sort((a,b)=>a[1].length-b[1].length).map(([k,arr])=>`<h3>${esc(k)} · ${arr.length}</h3><ul class="nlist">${arr.sort((a,b)=>a.k.localeCompare(b.k)||a.s.localeCompare(b.s)).map(m=>`<li><button data-go="${m.id}"><i class="${m.k==="cir"?"sq":"dot"}" style="background:${kc(m.k)}"></i><span>${esc(label(m))} <span class="mono" style="color:var(--muted)">#${m.id}</span></span></button></li>`).join("")}</ul>`).join("");
-    const chips=[...(n.er?['<span class="chip warn">has erratum</span>']:[]),...(n.wf?['<span class="chip">wontfix / withdrawn</span>']:[]),...(n.ess?['<span class="chip">Essential</span>']:[]),...n.sl.map(s=>`<span class="chip">${esc(s)}</span>`),...n.dom.map(s=>`<span class="chip">${esc(s)}</span>`),...n.art.slice(0,6).map(s=>`<span class="chip">${esc(s)}</span>`)].join("");
+    const chips=[...(n.er?['<span class="chip warn">has erratum</span>']:[]),...(n.wd?['<span class="chip">Withdrawn</span>']:[]),...(n.ess?['<span class="chip">Essential</span>']:[]),...n.sl.map(s=>`<span class="chip">${esc(s)}</span>`),...n.dom.map(s=>`<span class="chip">${esc(s)}</span>`),...n.art.slice(0,6).map(s=>`<span class="chip">${esc(s)}</span>`)].join("");
     d.innerHTML=`<span class="pill" style="color:${kc(n.k)}">${KIND[n.k].name}</span>
       <h2>${esc(n.t)}</h2>
       <div class="meta"><span class="mono">#${n.id}</span><span>${n.o?"open":"closed"}</span>${n.sdo?`<span>${esc(n.sdo)}</span>`:""}<span>updated ${n.u}</span></div>
@@ -240,12 +238,12 @@ function shape(sel){
   sel.each(function(n){const g=d3.select(this),r=R(n);
     if(n.k==="cir") g.append("rect").attr("x",-r).attr("y",-r).attr("width",2*r).attr("height",2*r).attr("rx",2).attr("fill",kc(n.k));
     else if(n.k==="errata") g.append("path").attr("d",d3.symbol(d3.symbolDiamond,r*r*3.2)()).attr("fill",kc(n.k));
-    else g.append("circle").attr("r",r).attr("fill",kc(n.k)).attr("fill-opacity",n.wf?.4:1);
+    else g.append("circle").attr("r",r).attr("fill",kc(n.k));
   });
 }
 function buildNetwork(){
-  const sig=$("n-sig").checked, wf=$("n-wf").checked, iso=$("n-iso").checked, dom=$("n-dom").value;
-  let keep=nodes.filter(n=>(sig||n.k!=="signal")&&(wf||!n.wf)&&(!dom||n.k!=="sts"&&n.k!=="signal"||n.dom.includes(dom)));
+  const iso=$("n-iso").checked, dom=$("n-dom").value;
+  let keep=nodes.filter(n=>!dom||n.k!=="sts"||n.dom.includes(dom));
   let ids=new Set(keep.map(n=>n.id));
   let L=edges.filter(e=>ids.has(e.s)&&ids.has(e.t));
   if(!iso){const linked=new Set(L.flatMap(e=>[e.s,e.t]));keep=keep.filter(n=>linked.has(n.id)||n.k==="errata");ids=new Set(keep.map(n=>n.id));}
@@ -343,7 +341,7 @@ function netUnfocus(){
 function sim(){return nVisible;}
 $("n-back").addEventListener("click",netUnfocus);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&view==="network") netUnfocus();});
-["n-sig","n-wf","n-iso","n-dom"].forEach(i=>$(i).addEventListener("change",buildNetwork));
+["n-iso","n-dom"].forEach(i=>$(i).addEventListener("change",buildNetwork));
 let nT; $("n-search").addEventListener("input",e=>{clearTimeout(nT); nT=setTimeout(()=>nFind(e.target.value),350);});
 function nFind(v){
   const q=v.trim().toLowerCase(); if(q.length<2) return;
@@ -357,7 +355,7 @@ function buildMatrix(){
   const dom=$("m-dom").value, ess=$("m-ess").checked, sort=$("m-sort").value;
   const cirs=nodes.filter(n=>n.k==="cir");
   const yr=n=>{const m=n.s.match(/(\d{4})\/(\d+)/);return m?+m[1]*1e5+ +m[2]:0};
-  let rows=nodes.filter(n=>n.k==="sts"&&!n.wf&&adj.get(n.id).some(a=>byId.get(a.id).k==="cir"||byId.get(a.id).k==="errata")&&(!dom||n.dom.includes(dom))&&(!ess||n.ess));
+  let rows=nodes.filter(n=>n.k==="sts"&&adj.get(n.id).some(a=>byId.get(a.id).k==="cir"||byId.get(a.id).k==="errata")&&(!dom||n.dom.includes(dom))&&(!ess||n.ess));
   const cirOf=id=>new Set(adj.get(id).filter(a=>byId.get(a.id).k==="cir").map(a=>a.id));
   const hasErr=id=>adj.get(id).some(a=>byId.get(a.id).k==="errata");
   rows=rows.map(n=>({n,c:cirOf(n.id),e:hasErr(n.id)}));
@@ -426,7 +424,7 @@ function drawArrows(g,pts,cx,cy,rc,rn){
 // Radial layout shared by the focus navigator and the network map's focus mode.
 // Neighbours are placed on a ring around (0,0), in sectors by registry and by link direction.
 function radial(id,r1,allow){
-  const nb=[...new Map(adj.get(id).map(a=>[a.id,a])).values()].map(a=>({...byId.get(a.id),rel:REL[a.type][a.dir],type:a.type,dir:a.dir})).filter(n=>(!n.wf||n.k!=="sts")&&(!allow||allow(n.id)));
+  const nb=[...new Map(adj.get(id).map(a=>[a.id,a])).values()].map(a=>({...byId.get(a.id),rel:REL[a.type][a.dir],type:a.type,dir:a.dir})).filter(n=>!allow||allow(n.id));
   const kindGroups=d3.group(nb,n=>n.k);
   const spans={sts:[-75,95],errata:[100,155],cir:[160,250],signal:[255,285]};
   if(!kindGroups.get("cir")) {spans.sts=[-80,150];spans.errata=[155,200];spans.signal=[210,270];}
@@ -460,7 +458,7 @@ const fSvg=d3.select("#f-canvas").append("svg"), fG=fSvg.append("g");
 const fZoom=d3.zoom().scaleExtent([.4,4]).on("zoom",e=>fG.attr("transform",e.transform));
 fSvg.call(fZoom);
 let trail=[];
-$("f-list").innerHTML=nodes.filter(n=>!n.wf).map(n=>`<option value="${esc(label(n))} #${n.id}">`).join("");
+$("f-list").innerHTML=nodes.map(n=>`<option value="${esc(label(n))} #${n.id}">`).join("");
 $("f-search").addEventListener("change",e=>{const m=e.target.value.match(/#(\d+)\s*$/)||e.target.value.match(/^(\d+)$/);
   let id=m?+m[1]:null; if(!id){const q=e.target.value.toLowerCase();const h=nodes.filter(n=>n.t.toLowerCase().includes(q)).sort((a,b)=>deg(b.id)-deg(a.id))[0];id=h&&h.id;}
   if(id&&byId.has(id)){location.hash="focus-"+id;e.target.value="";}});
@@ -477,7 +475,7 @@ function focusOn(id,keepTrail){
   const pos=new Map(pts.map(p=>[p.id,p])); pos.set(id,{...c,x:0,y:0});
   // second hop
   const hop=[];
-  if($("f-hop").checked){ pts.forEach(p=>adj.get(p.id).forEach(a=>{ if(a.id!==id&&!pos.has(a.id)&&!hop.some(h=>h.id===a.id)&&hop.length<160){const m=byId.get(a.id); if(m.wf) return; const j=hop.length; const t=p.ang+(((j%5)-2)*0.06); const rr=r1*1.55+(j%3)*14; hop.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,via:p.id});}})); }
+  if($("f-hop").checked){ pts.forEach(p=>adj.get(p.id).forEach(a=>{ if(a.id!==id&&!pos.has(a.id)&&!hop.some(h=>h.id===a.id)&&hop.length<160){const m=byId.get(a.id); const j=hop.length; const t=p.ang+(((j%5)-2)*0.06); const rr=r1*1.55+(j%3)*14; hop.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,via:p.id});}})); }
   fG.selectAll("*").remove();
   fG.append("circle").attr("class","ring").attr("r",r1);
   if(hop.length) fG.append("circle").attr("class","ring").attr("r",r1*1.55);
