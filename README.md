@@ -19,6 +19,8 @@ Without make: `bash scripts/refresh.sh`, then `python3 -m http.server -d site 80
 
 ## Publishing
 
+Live site: https://eudi-standards.koun.is/
+
 Every push to `main` (including merged pull requests) publishes `site/` to GitHub Pages through `.github/workflows/pages.yml`. It can also be run by hand from the Actions tab.
 
 ## How links are inferred
