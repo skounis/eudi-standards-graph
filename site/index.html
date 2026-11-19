@@ -111,7 +111,7 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
   <header>
     <div>
       <h1>EUDI Standards Graph</h1>
-      <p class="sub">How the STS Roadmap, the CIR Registry and the Errata Registry link to each other, built from the public issues in <span class="mono">eudi-doc-standards-and-technical-specifications</span>. Three prototype views of the same data.</p>
+      <p class="sub">How the STS Roadmap, the CIR Registry and the Errata Registry link to each other, built from the public issues in <span class="mono">eudi-doc-standards-and-technical-specifications</span>. Three views of the same data.</p>
     </div>
     <div class="legend" id="legend"></div>
   </header>
@@ -164,10 +164,10 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
   </section>
 
   <section class="reco" aria-labelledby="reco-h">
-    <h2 id="reco-h">How the three approaches compare</h2>
-    <div><h4>A. Network map <span class="tag">overview</span></h4><p>Best for a first impression and for spotting clusters, such as the large CIR 2024/2977 and 2026/1731 hubs. It gets busy past a few hundred nodes, so it relies on filters and highlighting to stay readable.</p></div>
-    <div><h4>B. CIR coverage matrix <span class="tag">analysis</span></h4><p>The most precise view: every CIR-to-standard link is a cell, gaps are visible as empty rows or columns, and errata line up with the CIRs they affect. It reads as a table rather than a graph, so it suits the team more than the public.</p></div>
-    <div><h4>C. Focus navigator <span class="tag">recommended for the public</span></h4><p>Scales to any size because it only draws one item and its neighbours, and every item gets a link that can be pasted into an issue or the registries. It matches how people arrive: from one standard or one CIR.</p></div>
+    <h2 id="reco-h">Which view to use</h2>
+    <div><h4>A. Network map <span class="tag">overview</span></h4><p>See the whole landscape and its clusters, such as the large CIR 2024/2977 and 2026/1731 hubs. Click any node to bring its neighbours around it; click the background to return to the full map.</p></div>
+    <div><h4>B. CIR coverage matrix <span class="tag">analysis</span></h4><p>Check exactly which standards each CIR cites. Every link is a cell, gaps show as empty rows or columns, and standards with an erratum are marked in red.</p></div>
+    <div><h4>C. Focus navigator <span class="tag">navigation</span></h4><p>Start from one standard, CIR or erratum and move from neighbour to neighbour. Every item has its own link, ready to paste into an issue or a registry entry.</p></div>
   </section>
   <p class="note" id="foot" style="border:0;padding:0"></p>
 </div>
@@ -195,7 +195,7 @@ const label=n=>n.k==="errata"?"Erratum: "+n.s:n.s;
 // legend + footer
 const cnt=k=>nodes.filter(n=>n.k===k).length;
 document.getElementById("legend").innerHTML=Object.entries(KIND).filter(([k])=>cnt(k)>0).map(([k,v])=>`<span><i class="${k==="cir"?"sq":"dot"}" style="background:${kc(k)}"></i>${v.name} (${cnt(k)})</span>`).join("");
-document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); issues labelled wontfix and feedback issues on specifications are left out; links come from CIR labels on standards and from issue links in issue bodies. Read-only prototype.`;
+document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); issues labelled wontfix and feedback issues on specifications are left out; links come from CIR labels on standards and from issue links in issue bodies.`;
 
 // domains
 const doms=[...new Set(nodes.flatMap(n=>n.dom))].sort();
