@@ -51,7 +51,9 @@ for i in d:
     n=nodes[i['number']]
     # label-based STS -> CIR
     for l in n['labels']:
-        if l in cirkey: add(i['number'],cirkey[l],'cites' if n['kind']=='sts' else 'ref')
+        if l in cirkey:
+            if n['kind']=='sts': add(cirkey[l],i['number'],'cites')  # the CIR cites the standard
+            else: add(i['number'],cirkey[l],'ref')
     body=i.get('body') or ''
     for m in set(linkre.findall(body)):
         m=int(m)
@@ -62,13 +64,14 @@ for i in d:
         elif {a,b}=={'cir','sts'}: t='cites'
         elif a=='signal': t='raises'
         else: t='ref'
-        if t=='cites' and a=='cir': add(m,i['number'],t)
+        if t=='cites' and a=='sts': add(m,i['number'],t)  # always CIR -> standard
         else: add(i['number'],m,t)
 rank={'corrects':0,'amends':1,'cites':2,'raises':3,'ref':4}
 best={}
 for e in edges:
     k=frozenset((e['s'],e['t']))
-    if k not in best or rank[e['type']]<rank[best[k]['type']]: best[k]=e
+    if k in best and best[k]['type']==e['type'] and best[k]['s']==e['t']: best[k]['both']=True
+    elif k not in best or rank[e['type']]<rank[best[k]['type']]: best[k]=e
 edges=list(best.values())
 SD={'Common':'Common Criteria','FprCEN/TS':'CEN','prCEN':'CEN','Data':'W3C','Verifiable':'W3C','VC':'W3C','Web':'W3C','RFC':'IETF','IANA':'IETF'}
 for n in nodes.values():

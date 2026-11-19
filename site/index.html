@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>EUDI Standards Graph</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -72,6 +73,8 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
 .link.corrects{stroke:var(--k-errata);stroke-opacity:.9;stroke-width:1.6}
 .link.amends{stroke:var(--k-cir);stroke-dasharray:4 3;stroke-opacity:.9}
 .link.raises{stroke:var(--k-signal);stroke-dasharray:2 3}
+#f-canvas .link.cites{stroke:var(--k-cir);stroke-opacity:.55}
+#f-canvas .link.ref{stroke:var(--muted)}
 .node{cursor:pointer}
 .node circle,.node rect,.node path{stroke:var(--surface);stroke-width:1.2}
 .lbl{font-size:10.5px;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
@@ -79,6 +82,9 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
 .dim .node:not(.on){opacity:.12}.dim .link:not(.on){stroke-opacity:.05}
 .dim .lbl:not(.on){opacity:0}
 .node.sel circle,.node.sel rect,.node.sel path{stroke:var(--hl);stroke-width:2.5}
+.focusing .link:not(.fx){stroke-opacity:.03}
+.focusing .node:not(.on){opacity:.07;pointer-events:none}
+.focusing .lbl:not(.on){opacity:0}
 .ring{fill:none;stroke:var(--line);stroke-dasharray:2 4}
 .sector{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;fill:var(--muted)}
 /* matrix */
@@ -124,8 +130,9 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
         <label><input type="checkbox" id="n-wf"> Withdrawn / wontfix</label>
         <label><input type="checkbox" id="n-iso"> Unlinked entries</label>
         <select id="n-dom" aria-label="Domain"><option value="">All domains</option></select>
+        <button class="btn" id="n-back" hidden>Show whole map</button>
       </div>
-      <div class="canvas" id="n-canvas"><span class="hint">Drag to pan, scroll or pinch to zoom, click a node for details</span></div>
+      <div class="canvas" id="n-canvas"><span class="hint" id="n-hint">Drag to pan, scroll or pinch to zoom, click a node to focus on it</span></div>
       <div class="note" id="n-note"></div>
     </div>
     <aside class="drawer" data-drawer></aside>
@@ -153,7 +160,7 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
         <div class="crumbs" id="f-crumbs"></div>
       </div>
       <div class="canvas" id="f-canvas"><span class="hint">Click any neighbour to move the focus to it</span></div>
-      <div class="note">Neighbours sit in sectors by registry: CIRs top left, roadmap standards right, errata bottom, feedback issues top. Each focus has its own link, e.g. <span class="mono">#focus-284</span>.</div>
+      <div class="note">Neighbours sit in sectors by registry and direction: arrows point from the issue that holds the link to the one it links to (a CIR points to the standards it cites, an erratum to the standard it corrects). Standards are split into “references” and “referenced by”. Each focus has its own link, e.g. <span class="mono">#focus-284</span>.</div>
     </div>
     <aside class="drawer" data-drawer></aside>
   </section>
@@ -173,15 +180,15 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
 const css=getComputedStyle(document.documentElement);
 const KIND={sts:{name:"STS Roadmap",var:"--k-sts",proj:"Project 29"},cir:{name:"CIR Registry",var:"--k-cir",proj:"Project 57"},errata:{name:"Errata Registry",var:"--k-errata",proj:"Project 67"},signal:{name:"Feedback issue",var:"--k-signal",proj:"no project"}};
 const kc=k=>`var(${KIND[k].var})`;
-const REL={corrects:["corrects","corrected by"],amends:["amends","amended by"],cites:["cites","cited by"],raises:["raises an issue on","has feedback"],ref:["references","referenced by"]};
+const REL={corrects:["corrects","corrected by","corrects"],amends:["amends","amended by","amends"],cites:["cites","cited by","cites"],raises:["raises an issue on","has feedback","raises an issue on"],ref:["references","referenced by","references each other"]};
 
 let data;
 try{ data=await (await fetch("graph.json")).json(); }
 catch(e){ document.querySelector(".wrap").insertAdjacentHTML("beforeend",'<p class="empty">The graph data did not load. Reload the page to try again.</p>'); return; }
 const nodes=data.nodes, byId=new Map(nodes.map(n=>[n.id,n]));
 const adj=new Map(nodes.map(n=>[n.id,[]]));
-const edges=data.edges.map(([s,t,type])=>({s,t,type}));
-edges.forEach(e=>{adj.get(e.s).push({id:e.t,type:e.type,dir:0});adj.get(e.t).push({id:e.s,type:e.type,dir:1});});
+const edges=data.edges.map(([s,t,type,both])=>({s,t,type,both:!!both}));
+edges.forEach(e=>{adj.get(e.s).push({id:e.t,type:e.type,dir:e.both?2:0});adj.get(e.t).push({id:e.s,type:e.type,dir:e.both?2:1});});
 const deg=id=>adj.get(id).length;
 const url=id=>`https://github.com/${data.repo}/issues/${id}`;
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -225,8 +232,9 @@ document.addEventListener("click",e=>{
 // ---------- A. network ----------
 const nSvg=d3.select("#n-canvas").append("svg"), nG=nSvg.append("g");
 const nZoom=d3.zoom().scaleExtent([.2,6]).on("zoom",e=>{nG.attr("transform",e.transform);nG.classed("zoomed",e.transform.k>1.7);updLabels(e.transform.k)});
-nSvg.call(nZoom).on("click",e=>{if(e.target===nSvg.node()){nG.classed("dim",false);}});
-let nVisible=[],nLinkSel,nNodeSel,nLblSel;
+nSvg.call(nZoom).on("click",e=>{if(e.target===nSvg.node()) netUnfocus();});
+let nVisible=[],nLinkSel,nNodeSel,nLblSel,nOverlay,nSimById=new Map(),nFocus=null;
+const DUR=()=>matchMedia("(prefers-reduced-motion: reduce)").matches?0:650;
 const R=n=>n.k==="cir"?5+Math.sqrt(deg(n.id))*1.9:n.k==="errata"?7:3.2+Math.sqrt(deg(n.id))*1.1;
 function shape(sel){
   sel.each(function(n){const g=d3.select(this),r=R(n);
@@ -250,25 +258,28 @@ function buildNetwork(){
     .force("collide",d3.forceCollide(n=>R(n)+2))
     .force("x",d3.forceX(W/2).strength(.045)).force("y",d3.forceY(H/2).strength(.06)).stop();
   for(let i=0;i<320;i++) s.tick();
-  nG.selectAll("*").remove();
+  sim.forEach(d=>{d.bx=d.x;d.by=d.y;});
+  nFocus=null; $("n-back").hidden=true;
+  nG.selectAll("*").remove(); nG.classed("focusing",false);
   nLinkSel=nG.append("g").selectAll("line").data(links).join("line").attr("class",d=>"link "+d.type)
     .attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
   nNodeSel=nG.append("g").selectAll("g").data(sim).join("g").attr("class","node").attr("transform",d=>`translate(${d.x},${d.y})`)
     .call(shape)
-    .on("mouseenter",(e,d)=>hl(d.id)).on("mouseleave",()=>hl(current))
+    .on("mouseenter",(e,d)=>{if(nFocus==null) hl(d.id);}).on("mouseleave",()=>{if(nFocus==null) hl(current);})
     .on("click",(e,d)=>{e.stopPropagation();renderDrawer(d.id)});
   nNodeSel.append("title").text(d=>`#${d.id} ${d.t}`);
   nLblSel=nG.append("g").selectAll("text").data(sim).join("text").attr("class",d=>"lbl "+d.k)
     .attr("x",d=>d.x+R(d)+3).attr("y",d=>d.y+3.5).text(d=>d.k==="cir"?d.s.replace(/^CI([RD]) \(EU\) /,"CI$1 "):label(d).slice(0,38));
-  nVisible=sim;
+  nOverlay=nG.insert("g",function(){return this.childNodes[1];});
+  nVisible=sim; nSimById=simById;
   // fit
   const xs=d3.extent(sim,d=>d.x), ys=d3.extent(sim,d=>d.y), box=$("n-canvas").getBoundingClientRect();
   const k=Math.min(box.width/(xs[1]-xs[0]+80),box.height/(ys[1]-ys[0]+80),2);
   nSvg.call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(k).translate(-(xs[0]+xs[1])/2,-(ys[0]+ys[1])/2));
   $("n-note").textContent=`${sim.length} entries and ${links.length} links shown. Squares are CIRs, diamonds are errata, circle size follows the number of links. Red lines: erratum corrects standard; dashed amber: CIR amends CIR.`;
-  hl(current);
+  if(current!=null&&simById.has(current)) netFocus(current,true); else hl(current);
 }
-function updLabels(k){ if(!nLblSel) return; nLblSel.attr("display",d=>(d.k==="cir"||d.k==="errata"||k>1.7||(k>1.1&&deg(d.id)>5))?null:"none"); }
+function updLabels(k){ if(!nLblSel||nFocus!=null) return; nLblSel.attr("display",d=>(d.k==="cir"||d.k==="errata"||k>1.7||(k>1.1&&deg(d.id)>5))?null:"none"); }
 function hl(id){
   if(!nNodeSel) return;
   if(id==null||!nVisible.some(n=>n.id===id)){nG.classed("dim",false);nNodeSel.classed("on",false).classed("sel",false);nLinkSel.classed("on",false);nLblSel.classed("on",false);return;}
@@ -278,14 +289,67 @@ function hl(id){
   nLinkSel.classed("on",d=>d.source.id===id||d.target.id===id);
   nLblSel.classed("on",d=>nb.has(d.id)).attr("display",d=>nb.has(d.id)?null:"none");
 }
-function netSelect(id){hl(id);}
+function netSelect(id){ if(nSimById.has(id)) netFocus(id); else hl(id); }
+// Focus mode: the selected node keeps its place, its neighbours move onto a ring around it
+// (same sectors and arrows as the focus navigator), everything else fades out.
+function netFocus(id,instant){
+  if(!nNodeSel||!nSimById.has(id)) return;
+  nFocus=id;
+  const c=nSimById.get(id), cx=c.bx, cy=c.by, r1=190;
+  const {pts,groups}=radial(id,r1,x=>nSimById.has(x));
+  const target=new Map(pts.map(p=>[p.id,{x:cx+p.x,y:cy+p.y}])); target.set(id,{x:cx,y:cy});
+  sim().forEach(d=>{const t=target.get(d.id)||{x:d.bx,y:d.by}; d.x=t.x; d.y=t.y;});
+  const dur=instant?0:DUR();
+  nG.classed("dim",false).classed("focusing",true);
+  nNodeSel.classed("on",d=>target.has(d.id)).classed("sel",d=>d.id===id);
+  nNodeSel.filter(d=>target.has(d.id)).raise();
+  const CS=Math.max(1,16/R(c));  // grow the focused node to the navigator's size
+  nNodeSel.transition().duration(dur).attr("transform",d=>`translate(${d.x},${d.y}) scale(${d.id===id?CS:1})`);
+  nLinkSel.classed("on",false).transition().duration(dur).attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  const side=d=>Math.cos(Math.atan2(d.y-cy,d.x-cx))<-0.01&&d.id!==id;
+  nLblSel.classed("on",d=>target.has(d.id)).attr("display",d=>target.has(d.id)?null:"none")
+    .text(d=>{const t=d.k==="cir"?d.s.replace(/^CI([RD]) \(EU\) /,"CI$1 "):label(d); return d.id===id?t.slice(0,60):t.slice(0,34)+(t.length>34?"…":"");})
+    .attr("text-anchor",d=>side(d)?"end":d.id===id?"middle":"start")
+    .transition().duration(dur).attr("x",d=>d.id===id?d.x:side(d)?d.x-R(d)-4:d.x+R(d)+4).attr("y",d=>d.id===id?d.y+R(d)*CS+16:d.y+3.5);
+  nOverlay.selectAll("*").remove();
+  const o=nOverlay.append("g").attr("opacity",0);
+  o.append("circle").attr("class","ring").attr("cx",cx).attr("cy",cy).attr("r",r1);
+  drawCaptions(o,groups,r1,cx,cy);
+  drawArrows(o.append("g"),pts,cx,cy,R(c)*CS+3,p=>R(nSimById.get(p.id))+3).classed("fx",true);
+  o.transition().delay(dur*.6).duration(dur*.4).attr("opacity",1);
+  $("n-back").hidden=false; $("n-hint").textContent="Click a neighbour to move the focus, or the background to see the whole map";
+  const box=$("n-canvas").getBoundingClientRect(), k=Math.min(box.width/(2*r1+420),box.height/(2*r1+120),2.4);
+  if(!box.width) return;  // tab hidden: route() refocuses when it is shown
+  nSvg.transition().duration(dur).call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(k).translate(-cx,-cy));
+}
+function netUnfocus(){
+  if(nFocus==null||!nNodeSel) return;
+  nFocus=null; const dur=DUR();
+  sim().forEach(d=>{d.x=d.bx;d.y=d.by;});
+  nOverlay.selectAll("*").remove();
+  nG.classed("focusing",false);
+  nNodeSel.classed("on",false).classed("sel",false).transition().duration(dur).attr("transform",d=>`translate(${d.x},${d.y})`);
+  nLinkSel.transition().duration(dur).attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  nLblSel.classed("on",false).attr("text-anchor","start").text(d=>d.k==="cir"?d.s.replace(/^CI([RD]) \(EU\) /,"CI$1 "):label(d).slice(0,38))
+    .transition().duration(dur).attr("x",d=>d.x+R(d)+3).attr("y",d=>d.y+3.5);
+  $("n-back").hidden=true; $("n-hint").textContent="Drag to pan, scroll or pinch to zoom, click a node to focus on it";
+  const xs=d3.extent(nVisible,d=>d.x), ys=d3.extent(nVisible,d=>d.y), box=$("n-canvas").getBoundingClientRect();
+  const k=Math.min(box.width/(xs[1]-xs[0]+80),box.height/(ys[1]-ys[0]+80),2);
+  if(!box.width) return;
+  nSvg.transition().duration(dur).call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(k).translate(-(xs[0]+xs[1])/2,-(ys[0]+ys[1])/2))
+    .on("end",()=>updLabels(k));
+  hl(null);
+}
+function sim(){return nVisible;}
+$("n-back").addEventListener("click",netUnfocus);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&view==="network") netUnfocus();});
 ["n-sig","n-wf","n-iso","n-dom"].forEach(i=>$(i).addEventListener("change",buildNetwork));
-$("n-search").addEventListener("input",e=>{
-  const q=e.target.value.trim().toLowerCase(); if(q.length<2) return;
+let nT; $("n-search").addEventListener("input",e=>{clearTimeout(nT); nT=setTimeout(()=>nFind(e.target.value),350);});
+function nFind(v){
+  const q=v.trim().toLowerCase(); if(q.length<2) return;
   const hit=nVisible.filter(n=>n.t.toLowerCase().includes(q)||String(n.id)===q.replace("#","")).sort((a,b)=>deg(b.id)-deg(a.id))[0];
-  if(hit){renderDrawer(hit.id); const box=$("n-canvas").getBoundingClientRect();
-    nSvg.transition().duration(500).call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(2.2).translate(-hit.x,-hit.y));}
-});
+  if(hit) renderDrawer(hit.id);
+}
 
 // ---------- B. matrix ----------
 let mxRows=[],mxCols=[];
@@ -342,7 +406,57 @@ function mxSelect(id){
 ["m-dom","m-ess","m-sort"].forEach(i=>$(i).addEventListener("change",buildMatrix));
 
 // ---------- C. focus ----------
+// (helpers)
+function drawCaptions(g,groups,r1,cx,cy){
+  const multi=k=>groups.filter(x=>x.k===k).length>1;
+  for(const gr of groups){const [a0,a1]=gr.span; const t=((a0+a1)/2)*Math.PI/180; const rr=r1*0.72;
+    const cap=(gr.k==="sts"||gr.k==="signal"||multi(gr.k))?`${gr.rel} · ${gr.items.length}`:`${KIND[gr.k].name} · ${gr.items.length}`;
+    const d=gr.items[0].dir;
+    g.append("text").attr("class","sector").attr("x",cx+Math.cos(t)*rr).attr("y",cy+Math.sin(t)*rr).attr("text-anchor","middle").style("fill",kc(gr.k))
+      .text((d===2?"\u2194 ":d===1?"\u2190 ":"\u2192 ")+cap);}
+}
+// Arrows run from the issue that holds the link to the one it points at; rc/rn keep the heads off the node shapes.
+function drawArrows(g,pts,cx,cy,rc,rn){
+  const seg=p=>{const L=Math.hypot(p.x,p.y)||1, ux=p.x/L, uy=p.y/L;
+    const a=[cx+ux*rc,cy+uy*rc], b=[cx+p.x-ux*(typeof rn==="function"?rn(p):rn),cy+p.y-uy*(typeof rn==="function"?rn(p):rn)];
+    return p.dir===1?`M${b[0]},${b[1]}L${a[0]},${a[1]}`:`M${a[0]},${a[1]}L${b[0]},${b[1]}`;};
+  return g.selectAll("path").data(pts).join("path").attr("class",p=>"link "+p.type).attr("stroke-opacity",.8)
+    .attr("d",seg).attr("marker-end",p=>`url(#arr-${p.type})`).attr("marker-start",p=>p.dir===2?`url(#arrs-${p.type})`:null);
+}
+// Radial layout shared by the focus navigator and the network map's focus mode.
+// Neighbours are placed on a ring around (0,0), in sectors by registry and by link direction.
+function radial(id,r1,allow){
+  const nb=[...new Map(adj.get(id).map(a=>[a.id,a])).values()].map(a=>({...byId.get(a.id),rel:REL[a.type][a.dir],type:a.type,dir:a.dir})).filter(n=>(!n.wf||n.k!=="sts")&&(!allow||allow(n.id)));
+  const kindGroups=d3.group(nb,n=>n.k);
+  const spans={sts:[-75,95],errata:[100,155],cir:[160,250],signal:[255,285]};
+  if(!kindGroups.get("cir")) {spans.sts=[-80,150];spans.errata=[155,200];spans.signal=[210,270];}
+  if(!kindGroups.get("sts")) {spans.cir=[-80,170];spans.errata=[180,230];}
+  // split each kind's sector into one sub-sector per relation (e.g. references / referenced by)
+  const relOrder=r=>["cites","references","references each other","corrects","amends","raises an issue on","cited by","referenced by","corrected by","amended by","has feedback"].indexOf(r);
+  const groups=[];
+  for(const [k,arr] of kindGroups){
+    const subs=[...d3.group(arr,m=>m.rel)].sort((a,b)=>relOrder(a[0])-relOrder(b[0]));
+    const [a0,a1]=spans[k], gap=subs.length>1?8:0, usable=(a1-a0)-gap*(subs.length-1), total=arr.length;
+    let start=a0;
+    subs.forEach(([rel,items])=>{const w=usable*items.length/total; groups.push({k,rel,items,span:[start,start+w]}); start+=w+gap;});
+  }
+  const pts=[];
+  for(const {items:arr,span} of groups){
+    arr.sort((a,b)=>a.s.localeCompare(b.s));
+    const [a0,a1]=span, n=arr.length;
+    arr.forEach((m,i)=>{const t=(n===1?(a0+a1)/2:a0+(a1-a0)*(i/(n-1)))*Math.PI/180; const rr=r1*(n>28&&i%2?1.22:1);
+      pts.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,ang:t});});
+  }
+  return {pts,groups};
+}
+
 const fSvg=d3.select("#f-canvas").append("svg"), fG=fSvg.append("g");
+{const defs=d3.select("body").append("svg").attr("width",0).attr("height",0).attr("aria-hidden","true").style("position","absolute").append("defs"), col={ref:"--muted",cites:"--k-cir",corrects:"--k-errata",amends:"--k-cir",raises:"--k-signal"};
+ for(const [t,v] of Object.entries(col)){
+   defs.append("marker").attr("id","arr-"+t).attr("viewBox","0 0 10 10").attr("refX",9).attr("refY",5).attr("markerWidth",7).attr("markerHeight",7).attr("orient","auto")
+     .append("path").attr("d","M0,0L10,5L0,10z").style("fill",`var(${v})`);
+   defs.append("marker").attr("id","arrs-"+t).attr("viewBox","0 0 10 10").attr("refX",1).attr("refY",5).attr("markerWidth",7).attr("markerHeight",7).attr("orient","auto")
+     .append("path").attr("d","M10,0L0,5L10,10z").style("fill",`var(${v})`);}}
 const fZoom=d3.zoom().scaleExtent([.4,4]).on("zoom",e=>fG.attr("transform",e.transform));
 fSvg.call(fZoom);
 let trail=[];
@@ -358,19 +472,8 @@ function focusOn(id,keepTrail){
   $("f-crumbs").innerHTML=trail.map((t,i)=>`${i?"›":""}<button ${t===id?'aria-current="true"':`data-crumb="${t}"`}>${esc(label(byId.get(t)).replace(/\s*\(\d{4}-\d{2}\).*$/,'').slice(0,30))}</button>`).join("");
   const box=$("f-canvas").getBoundingClientRect(), W=box.width, H=box.height;
   const c=byId.get(id);
-  const nb=[...new Map(adj.get(id).map(a=>[a.id,a])).values()].map(a=>({...byId.get(a.id),rel:REL[a.type][a.dir],type:a.type})).filter(n=>!n.wf||n.k!=="sts");
-  // sectors: errata between sts and cir on bottom; adjust spans by counts
-  const groups=d3.group(nb,n=>n.k);
-  const spans={sts:[-75,95],errata:[100,155],cir:[160,250],signal:[255,285]};
-  if(!groups.get("cir")) {spans.sts=[-80,150];spans.errata=[155,200];spans.signal=[210,270];}
-  if(!groups.get("sts")) {spans.cir=[-80,170];spans.errata=[180,230];}
-  const r1=Math.max(120,Math.min(W*.26,H*.36)), pts=[];
-  for(const [k,arr] of groups){
-    arr.sort((a,b)=>a.s.localeCompare(b.s));
-    const [a0,a1]=spans[k], n=arr.length;
-    arr.forEach((m,i)=>{const t=(n===1?(a0+a1)/2:a0+(a1-a0)*(i/(n-1)))*Math.PI/180; const rr=r1*(n>28&&i%2?1.22:1);
-      pts.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,ang:t});});
-  }
+  const r1=Math.max(120,Math.min(W*.26,H*.36));
+  const {pts,groups}=radial(id,r1);
   const pos=new Map(pts.map(p=>[p.id,p])); pos.set(id,{...c,x:0,y:0});
   // second hop
   const hop=[];
@@ -379,10 +482,9 @@ function focusOn(id,keepTrail){
   fG.append("circle").attr("class","ring").attr("r",r1);
   if(hop.length) fG.append("circle").attr("class","ring").attr("r",r1*1.55);
   // sector captions
-  for(const [k] of groups){const [a0,a1]=spans[k]; const t=((a0+a1)/2)*Math.PI/180; const rr=r1*0.74;
-    fG.append("text").attr("class","sector").attr("x",Math.cos(t)*rr).attr("y",Math.sin(t)*rr).attr("text-anchor","middle").attr("fill",kc(k)).style("fill",kc(k)).text(`${KIND[k].name} · ${groups.get(k).length}`);}
+  drawCaptions(fG,groups,r1,0,0);
   fG.append("g").selectAll("path").data(hop).join("path").attr("class","link").attr("stroke-opacity",.25).attr("d",h=>{const p=pos.get(h.via);return `M${p.x},${p.y}L${h.x},${h.y}`});
-  fG.append("g").selectAll("path").data(pts).join("path").attr("class",p=>"link "+p.type).attr("stroke-opacity",.7).attr("d",p=>`M0,0Q${p.x*.45},${p.y*.45*0.9} ${p.x},${p.y}`);
+  drawArrows(fG.append("g"),pts,0,0,20,10);
   const all=[...hop.map(h=>({...h,hop:1})),...pts,{...c,x:0,y:0,center:1}];
   const ng=fG.append("g").selectAll("g").data(all).join("g").attr("class","node").attr("transform",p=>`translate(${p.x},${p.y})`)
     .attr("opacity",p=>p.hop?.55:1).on("click",(e,p)=>{renderDrawer(p.id); if(!p.center) location.hash="focus-"+p.id;});
@@ -416,6 +518,7 @@ function route(){
   document.querySelectorAll("nav.tabs a").forEach(a=>{if(a.dataset.v===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
   ["network","matrix","focus"].forEach(x=>$("v-"+x).hidden=x!==v);
   if(v==="network"&&!built.network){built.network=1;buildNetwork();}
+  else if(v==="network"&&nFocus!=null) netFocus(nFocus,true);
   if(v==="matrix"&&!built.matrix){built.matrix=1;buildMatrix();}
   if(v==="focus"){ focusOn(fid||current||284); }
   else renderDrawer(current);
