@@ -104,6 +104,8 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
 .reco h4{margin:0 0 3px;font-size:13.5px}
 .reco p{margin:0;color:var(--muted);font-size:13px;max-width:62ch}
 .tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:6px}
+.disclaimer a{color:var(--accent)}
+.disclaimer{margin:-8px 0 0;font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -170,6 +172,7 @@ aside.drawer{background:var(--surface);border:1px solid var(--line);border-radiu
     <div><h4>C. Focus navigator <span class="tag">navigation</span></h4><p>Start from one standard, CIR or erratum and move from neighbour to neighbour. Every item has its own link, ready to paste into an issue or a registry entry.</p></div>
   </section>
   <p class="note" id="foot" style="border:0;padding:0"></p>
+  <p class="disclaimer" id="disclaimer" role="note">This is a personal project by <a href="https://github.com/skounis" target="_blank" rel="noopener">@skounis</a>, made in a personal capacity. It is not an official European Commission website and does not represent the views of the European Commission. All data comes from public GitHub issues.</p>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -195,7 +198,7 @@ const label=n=>n.k==="errata"?"Erratum: "+n.s:n.s;
 // legend + footer
 const cnt=k=>nodes.filter(n=>n.k===k).length;
 document.getElementById("legend").innerHTML=Object.entries(KIND).filter(([k])=>cnt(k)>0).map(([k,v])=>`<span><i class="${k==="cir"?"sq":"dot"}" style="background:${kc(k)}"></i>${v.name} (${cnt(k)})</span>`).join("");
-document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); issues labelled wontfix and feedback issues on specifications are left out; links come from CIR labels on standards and from issue links in issue bodies.`;
+document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); links come from CIR labels on standards and from issue links in issue bodies.`;
 
 // domains
 const doms=[...new Set(nodes.flatMap(n=>n.dom))].sort();

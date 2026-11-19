@@ -25,3 +25,7 @@ Without make: `bash scripts/refresh.sh`, then `python3 -m http.server -d site 80
 - Issue links in bodies: erratum → standard = corrects; CIR → CIR = amends; anything else = references. Arrows point from the issue that holds the link.
 
 Project fields (Status, Target Quarter, Responsible body) are not included yet; they need the Projects GraphQL API.
+
+## Disclaimer
+
+This is a personal project by [@skounis](https://github.com/skounis), made in a personal capacity. It is not an official European Commission website and does not represent the views of the European Commission. All data comes from public GitHub issues.
