@@ -17,6 +17,10 @@ Needs `gh` (signed in) and Python 3.
 
 Without make: `bash scripts/refresh.sh`, then `python3 -m http.server -d site 8000`.
 
+## Publishing
+
+Every push to `main` (including merged pull requests) publishes `site/` to GitHub Pages through `.github/workflows/pages.yml`. It can also be run by hand from the Actions tab.
+
 ## How links are inferred
 
 - Scope: issues labelled `wontfix` and feedback issues on specifications ("[TSx] …" or "TSx: …" titles, or issues with no `sts:` label and no standards-body prefix) are left out. `Withdrawn` entries are kept and marked.
