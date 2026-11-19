@@ -1,0 +1,427 @@
+<title>EUDI Standards Graph</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: app shell. Header + view tabs; each view = stage (graph) beside a detail drawer that stacks under it on phones. */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --ink:#18202b; --muted:#5b6574; --line:#d9dde4; --faint:#eceff3;
+  --accent:#2b4fd8;
+  --k-sts:#2f6fd0; --k-cir:#b7791f; --k-errata:#d1453b; --k-signal:#7a6fb0;
+  --edge:#9aa3b2; --hl:#18202b;
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151b; --surface:#181d25; --ink:#e6e9ef; --muted:#97a1b0; --line:#2b323d; --faint:#202631;
+  --accent:#7d97ff; --k-sts:#5d97f0; --k-cir:#e0a645; --k-errata:#f0675c; --k-signal:#a79ce0;
+  --edge:#566070; --hl:#ffffff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181d25; --ink:#e6e9ef; --muted:#97a1b0; --line:#2b323d; --faint:#202631;
+  --accent:#7d97ff; --k-sts:#5d97f0; --k-cir:#e0a645; --k-errata:#f0675c; --k-signal:#a79ce0;
+  --edge:#566070; --hl:#ffffff; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px}
+.wrap{max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:600;font-size:26px;margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;max-width:70ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+.sq{width:10px;height:10px;border-radius:2px;display:inline-block;flex:none}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto}
+nav.tabs a{padding:9px 14px 10px;color:var(--muted);text-decoration:none;font-weight:500;border-bottom:2px solid transparent;white-space:nowrap;display:flex;flex-direction:column;gap:1px}
+nav.tabs a small{font-weight:400;font-size:11.5px}
+nav.tabs a[aria-current="page"]{color:var(--ink);border-color:var(--accent)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.view{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:900px){.view{grid-template-columns:minmax(0,1fr)}}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:0;display:flex;flex-direction:column}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.toolbar label{display:inline-flex;align-items:center;gap:5px;color:var(--muted);cursor:pointer}
+.toolbar input[type=search],.toolbar select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.toolbar input[type=search]{width:220px;max-width:100%}
+.note{font-size:12px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
+.canvas{position:relative;height:min(72vh,760px);min-height:420px;overflow:hidden}
+.canvas svg{width:100%;height:100%;display:block;touch-action:none}
+.hint{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);background:var(--surface);padding:3px 8px;border-radius:4px;border:1px solid var(--line);pointer-events:none}
+/* drawer */
+aside.drawer{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;min-width:0}
+.drawer h2{font-family:var(--f-display);font-size:17px;font-weight:600;margin:6px 0 4px;line-height:1.25;text-wrap:balance}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:999px;border:1px solid currentColor}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.chip{font-size:11.5px;padding:1px 7px;border-radius:4px;background:var(--faint);color:var(--muted)}
+.chip.warn{color:var(--k-errata);background:color-mix(in srgb,var(--k-errata) 12%,transparent)}
+.drawer p.sum{color:var(--ink);font-size:13px;margin:8px 0}
+.drawer h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 4px;font-weight:600}
+.nlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.nlist button{all:unset;cursor:pointer;display:flex;gap:7px;align-items:baseline;padding:4px 4px;border-radius:4px;font-size:13px;width:100%;box-sizing:border-box}
+.nlist button:hover{background:var(--faint)}
+.nlist .dot{transform:translateY(1px)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btn{font:inherit;font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty{color:var(--muted);font-size:13px}
+/* svg */
+.link{stroke:var(--edge);stroke-opacity:.45;fill:none}
+.link.corrects{stroke:var(--k-errata);stroke-opacity:.9;stroke-width:1.6}
+.link.amends{stroke:var(--k-cir);stroke-dasharray:4 3;stroke-opacity:.9}
+.link.raises{stroke:var(--k-signal);stroke-dasharray:2 3}
+.node{cursor:pointer}
+.node circle,.node rect,.node path{stroke:var(--surface);stroke-width:1.2}
+.lbl{font-size:10.5px;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.lbl.cir{font-weight:600;font-size:11px}
+.dim .node:not(.on){opacity:.12}.dim .link:not(.on){stroke-opacity:.05}
+.dim .lbl:not(.on){opacity:0}
+.node.sel circle,.node.sel rect,.node.sel path{stroke:var(--hl);stroke-width:2.5}
+.ring{fill:none;stroke:var(--line);stroke-dasharray:2 4}
+.sector{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;fill:var(--muted)}
+/* matrix */
+.mx{overflow:auto;max-height:min(74vh,780px);position:relative}
+.mx svg{display:block}
+.mx .hdr{position:sticky;top:0;z-index:2;background:var(--surface)}
+.mx text{font-size:11px;fill:var(--ink)}
+.mx .rowlbl{cursor:pointer}
+.mx .grp{font-size:11px;font-weight:600;fill:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.mx .cell{cursor:pointer}
+.mx .xh{fill:var(--accent);opacity:.08;pointer-events:none}
+.crumbs{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12.5px;color:var(--muted)}
+.crumbs button{all:unset;cursor:pointer;color:var(--accent);padding:1px 2px}
+.crumbs button[aria-current]{color:var(--ink);font-weight:600;cursor:default}
+.reco{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 24px}
+.reco h2{font-family:var(--f-display);font-size:18px;margin:0 0 4px;grid-column:1/-1}
+.reco h4{margin:0 0 3px;font-size:13.5px}
+.reco p{margin:0;color:var(--muted);font-size:13px;max-width:62ch}
+.tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>EUDI Standards Graph</h1>
+      <p class="sub">How the STS Roadmap, the CIR Registry and the Errata Registry link to each other, built from the public issues in <span class="mono">eudi-doc-standards-and-technical-specifications</span>. Three prototype views of the same data.</p>
+    </div>
+    <div class="legend" id="legend"></div>
+  </header>
+
+  <nav class="tabs" aria-label="Views">
+    <a href="#network" data-v="network">A. Network map<small>the whole landscape at once</small></a>
+    <a href="#matrix" data-v="matrix">B. CIR coverage matrix<small>which CIR cites which standard</small></a>
+    <a href="#focus" data-v="focus">C. Focus navigator<small>one item and its neighbours</small></a>
+  </nav>
+
+  <section class="view" id="v-network">
+    <div class="stage">
+      <div class="toolbar">
+        <input type="search" id="n-search" placeholder="Find a standard, CIR or erratum" aria-label="Find">
+        <label><input type="checkbox" id="n-sig"> Feedback issues</label>
+        <label><input type="checkbox" id="n-wf"> Withdrawn / wontfix</label>
+        <label><input type="checkbox" id="n-iso"> Unlinked entries</label>
+        <select id="n-dom" aria-label="Domain"><option value="">All domains</option></select>
+      </div>
+      <div class="canvas" id="n-canvas"><span class="hint">Drag to pan, scroll or pinch to zoom, click a node for details</span></div>
+      <div class="note" id="n-note"></div>
+    </div>
+    <aside class="drawer" data-drawer></aside>
+  </section>
+
+  <section class="view" id="v-matrix" hidden>
+    <div class="stage">
+      <div class="toolbar">
+        <select id="m-sort" aria-label="Order rows"><option value="sdo">Group by standards body</option><option value="count">Most-cited first</option><option value="errata">Errata first</option></select>
+        <select id="m-dom" aria-label="Domain"><option value="">All domains</option></select>
+        <label><input type="checkbox" id="m-ess"> Essential only</label>
+      </div>
+      <div class="mx" id="m-box"></div>
+      <div class="note">Columns are CIRs in the CIR Registry, oldest left. A filled cell means the standard carries that CIR's label. Red marks a standard with a published erratum.</div>
+    </div>
+    <aside class="drawer" data-drawer></aside>
+  </section>
+
+  <section class="view" id="v-focus" hidden>
+    <div class="stage">
+      <div class="toolbar">
+        <input type="search" id="f-search" list="f-list" placeholder="Jump to… (e.g. 472-1, 2024/2977)" aria-label="Jump to">
+        <datalist id="f-list"></datalist>
+        <label><input type="checkbox" id="f-hop"> Show second hop</label>
+        <div class="crumbs" id="f-crumbs"></div>
+      </div>
+      <div class="canvas" id="f-canvas"><span class="hint">Click any neighbour to move the focus to it</span></div>
+      <div class="note">Neighbours sit in sectors by registry: CIRs top left, roadmap standards right, errata bottom, feedback issues top. Each focus has its own link, e.g. <span class="mono">#focus-284</span>.</div>
+    </div>
+    <aside class="drawer" data-drawer></aside>
+  </section>
+
+  <section class="reco" aria-labelledby="reco-h">
+    <h2 id="reco-h">How the three approaches compare</h2>
+    <div><h4>A. Network map <span class="tag">overview</span></h4><p>Best for a first impression and for spotting clusters, such as the large CIR 2024/2977 and 2026/1731 hubs. It gets busy past a few hundred nodes, so it relies on filters and highlighting to stay readable.</p></div>
+    <div><h4>B. CIR coverage matrix <span class="tag">analysis</span></h4><p>The most precise view: every CIR-to-standard link is a cell, gaps are visible as empty rows or columns, and errata line up with the CIRs they affect. It reads as a table rather than a graph, so it suits the team more than the public.</p></div>
+    <div><h4>C. Focus navigator <span class="tag">recommended for the public</span></h4><p>Scales to any size because it only draws one item and its neighbours, and every item gets a link that can be pasted into an issue or the registries. It matches how people arrive: from one standard or one CIR.</p></div>
+  </section>
+  <p class="note" id="foot" style="border:0;padding:0"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+(async function(){
+const css=getComputedStyle(document.documentElement);
+const KIND={sts:{name:"STS Roadmap",var:"--k-sts",proj:"Project 29"},cir:{name:"CIR Registry",var:"--k-cir",proj:"Project 57"},errata:{name:"Errata Registry",var:"--k-errata",proj:"Project 67"},signal:{name:"Feedback issue",var:"--k-signal",proj:"no project"}};
+const kc=k=>`var(${KIND[k].var})`;
+const REL={corrects:["corrects","corrected by"],amends:["amends","amended by"],cites:["cites","cited by"],raises:["raises an issue on","has feedback"],ref:["references","referenced by"]};
+
+let data;
+try{ data=await (await fetch("graph.json")).json(); }
+catch(e){ document.querySelector(".wrap").insertAdjacentHTML("beforeend",'<p class="empty">The graph data did not load. Reload the page to try again.</p>'); return; }
+const nodes=data.nodes, byId=new Map(nodes.map(n=>[n.id,n]));
+const adj=new Map(nodes.map(n=>[n.id,[]]));
+const edges=data.edges.map(([s,t,type])=>({s,t,type}));
+edges.forEach(e=>{adj.get(e.s).push({id:e.t,type:e.type,dir:0});adj.get(e.t).push({id:e.s,type:e.type,dir:1});});
+const deg=id=>adj.get(id).length;
+const url=id=>`https://github.com/${data.repo}/issues/${id}`;
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const label=n=>n.k==="errata"?"Erratum: "+n.s:n.s;
+
+// legend + footer
+const cnt=k=>nodes.filter(n=>n.k===k).length;
+document.getElementById("legend").innerHTML=Object.entries(KIND).map(([k,v])=>`<span><i class="${k==="cir"?"sq":"dot"}" style="background:${kc(k)}"></i>${v.name} (${cnt(k)})</span>`).join("");
+document.getElementById("foot").textContent=`Data: ${nodes.length} public issues and ${edges.length} links, fetched ${data.generated}. Registry membership is inferred from labels and titles (CIR label, "Errata:" titles); links come from CIR labels on standards and from issue links in issue bodies. Read-only prototype.`;
+
+// domains
+const doms=[...new Set(nodes.flatMap(n=>n.dom))].sort();
+for(const sel of ["n-dom","m-dom"]) document.getElementById(sel).insertAdjacentHTML("beforeend",doms.map(d=>`<option>${esc(d)}</option>`).join(""));
+
+// ---------- drawer ----------
+let current=null;
+function renderDrawer(id){
+  current=id;
+  const n=byId.get(id);
+  document.querySelectorAll("[data-drawer]").forEach(d=>{
+    if(!n){d.innerHTML=`<p class="empty">Select a node to see the issue, its labels and everything it links to.</p>`;return;}
+    const groups={};
+    adj.get(id).forEach(a=>{const key=REL[a.type][a.dir];(groups[key]=groups[key]||[]).push(byId.get(a.id));});
+    const list=Object.entries(groups).sort((a,b)=>a[1].length-b[1].length).map(([k,arr])=>`<h3>${esc(k)} · ${arr.length}</h3><ul class="nlist">${arr.sort((a,b)=>a.k.localeCompare(b.k)||a.s.localeCompare(b.s)).map(m=>`<li><button data-go="${m.id}"><i class="${m.k==="cir"?"sq":"dot"}" style="background:${kc(m.k)}"></i><span>${esc(label(m))} <span class="mono" style="color:var(--muted)">#${m.id}</span></span></button></li>`).join("")}</ul>`).join("");
+    const chips=[...(n.er?['<span class="chip warn">has erratum</span>']:[]),...(n.wf?['<span class="chip">wontfix / withdrawn</span>']:[]),...(n.ess?['<span class="chip">Essential</span>']:[]),...n.sl.map(s=>`<span class="chip">${esc(s)}</span>`),...n.dom.map(s=>`<span class="chip">${esc(s)}</span>`),...n.art.slice(0,6).map(s=>`<span class="chip">${esc(s)}</span>`)].join("");
+    d.innerHTML=`<span class="pill" style="color:${kc(n.k)}">${KIND[n.k].name}</span>
+      <h2>${esc(n.t)}</h2>
+      <div class="meta"><span class="mono">#${n.id}</span><span>${n.o?"open":"closed"}</span>${n.sdo?`<span>${esc(n.sdo)}</span>`:""}<span>updated ${n.u}</span></div>
+      <div class="chips">${chips}</div>
+      ${n.sum?`<p class="sum">${esc(n.sum)}${n.sum.length>=279?"…":""}</p>`:""}
+      <div class="actions"><a class="btn" href="${url(n.id)}" target="_blank" rel="noopener">Open on GitHub</a><button class="btn primary" data-focus="${n.id}">Focus on this</button></div>
+      ${list||'<p class="empty">No links found to other issues.</p>'}`;
+  });
+  netSelect(id); mxSelect(id);
+}
+document.addEventListener("click",e=>{
+  const g=e.target.closest("[data-go]"); if(g){renderDrawer(+g.dataset.go); if(view==="focus") focusOn(+g.dataset.go); return;}
+  const f=e.target.closest("[data-focus]"); if(f){ location.hash="focus-"+f.dataset.focus; }
+});
+
+// ---------- A. network ----------
+const nSvg=d3.select("#n-canvas").append("svg"), nG=nSvg.append("g");
+const nZoom=d3.zoom().scaleExtent([.2,6]).on("zoom",e=>{nG.attr("transform",e.transform);nG.classed("zoomed",e.transform.k>1.7);updLabels(e.transform.k)});
+nSvg.call(nZoom).on("click",e=>{if(e.target===nSvg.node()){nG.classed("dim",false);}});
+let nVisible=[],nLinkSel,nNodeSel,nLblSel;
+const R=n=>n.k==="cir"?5+Math.sqrt(deg(n.id))*1.9:n.k==="errata"?7:3.2+Math.sqrt(deg(n.id))*1.1;
+function shape(sel){
+  sel.each(function(n){const g=d3.select(this),r=R(n);
+    if(n.k==="cir") g.append("rect").attr("x",-r).attr("y",-r).attr("width",2*r).attr("height",2*r).attr("rx",2).attr("fill",kc(n.k));
+    else if(n.k==="errata") g.append("path").attr("d",d3.symbol(d3.symbolDiamond,r*r*3.2)()).attr("fill",kc(n.k));
+    else g.append("circle").attr("r",r).attr("fill",kc(n.k)).attr("fill-opacity",n.wf?.4:1);
+  });
+}
+function buildNetwork(){
+  const sig=$("n-sig").checked, wf=$("n-wf").checked, iso=$("n-iso").checked, dom=$("n-dom").value;
+  let keep=nodes.filter(n=>(sig||n.k!=="signal")&&(wf||!n.wf)&&(!dom||n.k!=="sts"&&n.k!=="signal"||n.dom.includes(dom)));
+  let ids=new Set(keep.map(n=>n.id));
+  let L=edges.filter(e=>ids.has(e.s)&&ids.has(e.t));
+  if(!iso){const linked=new Set(L.flatMap(e=>[e.s,e.t]));keep=keep.filter(n=>linked.has(n.id)||n.k==="errata");ids=new Set(keep.map(n=>n.id));}
+  const sim=keep.map(n=>({...n})), simById=new Map(sim.map(n=>[n.id,n]));
+  const links=L.map(e=>({source:simById.get(e.s),target:simById.get(e.t),type:e.type}));
+  const W=900,H=760;
+  const s=d3.forceSimulation(sim)
+    .force("link",d3.forceLink(links).distance(l=>l.type==="corrects"?24:l.type==="cites"?55:40).strength(l=>l.type==="ref"?.25:.6))
+    .force("charge",d3.forceManyBody().strength(n=>n.k==="cir"?-260:-55).distanceMax(380))
+    .force("collide",d3.forceCollide(n=>R(n)+2))
+    .force("x",d3.forceX(W/2).strength(.045)).force("y",d3.forceY(H/2).strength(.06)).stop();
+  for(let i=0;i<320;i++) s.tick();
+  nG.selectAll("*").remove();
+  nLinkSel=nG.append("g").selectAll("line").data(links).join("line").attr("class",d=>"link "+d.type)
+    .attr("x1",d=>d.source.x).attr("y1",d=>d.source.y).attr("x2",d=>d.target.x).attr("y2",d=>d.target.y);
+  nNodeSel=nG.append("g").selectAll("g").data(sim).join("g").attr("class","node").attr("transform",d=>`translate(${d.x},${d.y})`)
+    .call(shape)
+    .on("mouseenter",(e,d)=>hl(d.id)).on("mouseleave",()=>hl(current))
+    .on("click",(e,d)=>{e.stopPropagation();renderDrawer(d.id)});
+  nNodeSel.append("title").text(d=>`#${d.id} ${d.t}`);
+  nLblSel=nG.append("g").selectAll("text").data(sim).join("text").attr("class",d=>"lbl "+d.k)
+    .attr("x",d=>d.x+R(d)+3).attr("y",d=>d.y+3.5).text(d=>d.k==="cir"?d.s.replace(/^CI([RD]) \(EU\) /,"CI$1 "):label(d).slice(0,38));
+  nVisible=sim;
+  // fit
+  const xs=d3.extent(sim,d=>d.x), ys=d3.extent(sim,d=>d.y), box=$("n-canvas").getBoundingClientRect();
+  const k=Math.min(box.width/(xs[1]-xs[0]+80),box.height/(ys[1]-ys[0]+80),2);
+  nSvg.call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(k).translate(-(xs[0]+xs[1])/2,-(ys[0]+ys[1])/2));
+  $("n-note").textContent=`${sim.length} entries and ${links.length} links shown. Squares are CIRs, diamonds are errata, circle size follows the number of links. Red lines: erratum corrects standard; dashed amber: CIR amends CIR.`;
+  hl(current);
+}
+function updLabels(k){ if(!nLblSel) return; nLblSel.attr("display",d=>(d.k==="cir"||d.k==="errata"||k>1.7||(k>1.1&&deg(d.id)>5))?null:"none"); }
+function hl(id){
+  if(!nNodeSel) return;
+  if(id==null||!nVisible.some(n=>n.id===id)){nG.classed("dim",false);nNodeSel.classed("on",false).classed("sel",false);nLinkSel.classed("on",false);nLblSel.classed("on",false);return;}
+  const nb=new Set([id,...adj.get(id).map(a=>a.id)]);
+  nG.classed("dim",true);
+  nNodeSel.classed("on",d=>nb.has(d.id)).classed("sel",d=>d.id===id);
+  nLinkSel.classed("on",d=>d.source.id===id||d.target.id===id);
+  nLblSel.classed("on",d=>nb.has(d.id)).attr("display",d=>nb.has(d.id)?null:"none");
+}
+function netSelect(id){hl(id);}
+["n-sig","n-wf","n-iso","n-dom"].forEach(i=>$(i).addEventListener("change",buildNetwork));
+$("n-search").addEventListener("input",e=>{
+  const q=e.target.value.trim().toLowerCase(); if(q.length<2) return;
+  const hit=nVisible.filter(n=>n.t.toLowerCase().includes(q)||String(n.id)===q.replace("#","")).sort((a,b)=>deg(b.id)-deg(a.id))[0];
+  if(hit){renderDrawer(hit.id); const box=$("n-canvas").getBoundingClientRect();
+    nSvg.transition().duration(500).call(nZoom.transform,d3.zoomIdentity.translate(box.width/2,box.height/2).scale(2.2).translate(-hit.x,-hit.y));}
+});
+
+// ---------- B. matrix ----------
+let mxRows=[],mxCols=[];
+function buildMatrix(){
+  const dom=$("m-dom").value, ess=$("m-ess").checked, sort=$("m-sort").value;
+  const cirs=nodes.filter(n=>n.k==="cir");
+  const yr=n=>{const m=n.s.match(/(\d{4})\/(\d+)/);return m?+m[1]*1e5+ +m[2]:0};
+  let rows=nodes.filter(n=>n.k==="sts"&&!n.wf&&adj.get(n.id).some(a=>byId.get(a.id).k==="cir"||byId.get(a.id).k==="errata")&&(!dom||n.dom.includes(dom))&&(!ess||n.ess));
+  const cirOf=id=>new Set(adj.get(id).filter(a=>byId.get(a.id).k==="cir").map(a=>a.id));
+  const hasErr=id=>adj.get(id).some(a=>byId.get(a.id).k==="errata");
+  rows=rows.map(n=>({n,c:cirOf(n.id),e:hasErr(n.id)}));
+  const used=new Set(rows.flatMap(r=>[...r.c]));
+  mxCols=cirs.filter(c=>used.has(c.id)).sort((a,b)=>yr(a)-yr(b));
+  const order=["ETSI","CEN","ISO/IEC","ISO","IETF","OIDF","W3C","EC"];
+  const g=s=>{const i=order.indexOf(s);return i<0?99:i};
+  if(sort==="sdo") rows.sort((a,b)=>g(a.n.sdo)-g(b.n.sdo)||(a.n.sdo||"").localeCompare(b.n.sdo||"")||b.c.size-a.c.size||a.n.s.localeCompare(b.n.s));
+  if(sort==="count") rows.sort((a,b)=>b.c.size-a.c.size||a.n.s.localeCompare(b.n.s));
+  if(sort==="errata") rows.sort((a,b)=>b.e-a.e||b.c.size-a.c.size);
+  mxRows=rows;
+  const cs=17, lw=300, hh=150, gapH=22;
+  // y positions with group headers
+  let y=0,last=null; const ys=[],grps=[];
+  rows.forEach(r=>{ if(sort==="sdo"&&r.n.sdo!==last){ if(last!==null) y+=6; grps.push({t:r.n.sdo||"Other",y:y+14}); y+=gapH; last=r.n.sdo;} ys.push(y); y+=cs; });
+  const W=lw+mxCols.length*cs+40, Hb=y+10;
+  const box=d3.select("#m-box"); box.selectAll("*").remove();
+  const hdr=box.append("div").attr("class","hdr").append("svg").attr("width",W).attr("height",hh);
+  const colTot=mxCols.map(c=>rows.filter(r=>r.c.has(c.id)).length);
+  hdr.selectAll("g").data(mxCols).join("g").attr("transform",(c,i)=>`translate(${lw+i*cs+cs/2},${hh-6}) rotate(-60)`)
+    .append("text").attr("class","rowlbl").text((c,i)=>c.s.replace(/^CI([RD]) \(EU\) /,"CI$1 ")+` · ${colTot[i]}`).on("click",(e,c)=>renderDrawer(c.id)).append("title").text(c=>c.t);
+  hdr.append("text").attr("x",8).attr("y",hh-8).attr("class","grp").text(`${rows.length} standards × ${mxCols.length} CIRs`);
+  const svg=box.append("svg").attr("width",W).attr("height",Hb);
+  const xh=svg.append("g");
+  svg.selectAll(".grp").data(grps).join("text").attr("class","grp").attr("x",8).attr("y",d=>d.y).text(d=>d.t);
+  // grid stripes
+  svg.append("g").selectAll("rect").data(mxCols).join("rect").attr("x",(c,i)=>lw+i*cs).attr("y",0).attr("width",cs).attr("height",Hb).attr("fill",(c,i)=>i%2?"var(--faint)":"none").attr("opacity",.6);
+  const row=svg.append("g").selectAll("g").data(rows).join("g").attr("transform",(r,i)=>`translate(0,${ys[i]})`);
+  row.append("text").attr("class","rowlbl").attr("x",22).attr("y",cs-5).text(r=>r.n.s.length>44?r.n.s.slice(0,43)+"…":r.n.s).on("click",(e,r)=>renderDrawer(r.n.id)).append("title").text(r=>`#${r.n.id} ${r.n.t}`);
+  row.filter(r=>r.e).append("path").attr("d",d3.symbol(d3.symbolDiamond,46)()).attr("transform",`translate(12,${cs/2})`).attr("fill","var(--k-errata)").style("cursor","pointer").on("click",(e,r)=>{const er=adj.get(r.n.id).find(a=>byId.get(a.id).k==="errata");renderDrawer(er.id)}).append("title").text("Has a published erratum. Click to open it.");
+  row.each(function(r){
+    const g=d3.select(this);
+    mxCols.forEach((c,i)=>{ if(r.c.has(c.id)) g.append("rect").attr("class","cell").attr("x",lw+i*cs+2.5).attr("y",2.5).attr("width",cs-5).attr("height",cs-5).attr("rx",2)
+      .attr("fill",r.e?"var(--k-errata)":"var(--k-cir)").on("mouseenter",()=>cross(ys[rows.indexOf(r)],i)).on("click",()=>renderDrawer(r.n.id))
+      .append("title").text(`${r.n.s}\ncited by ${c.s}`); });
+  });
+  function cross(yy,i){xh.selectAll("*").remove();xh.append("rect").attr("class","xh").attr("x",0).attr("y",yy).attr("width",W).attr("height",cs);xh.append("rect").attr("class","xh").attr("x",lw+i*cs).attr("y",0).attr("width",cs).attr("height",Hb);}
+  svg.on("mouseleave",()=>xh.selectAll("*").remove());
+  mxSelect(current);
+}
+function mxSelect(id){
+  const box=d3.select("#m-box"); box.selectAll(".rowlbl").attr("font-weight",null).style("fill",null);
+  if(id==null) return;
+  box.selectAll(".rowlbl").filter(d=>d&&((d.n&&d.n.id===id)||d.id===id)).attr("font-weight",600).style("fill","var(--accent)");
+}
+["m-dom","m-ess","m-sort"].forEach(i=>$(i).addEventListener("change",buildMatrix));
+
+// ---------- C. focus ----------
+const fSvg=d3.select("#f-canvas").append("svg"), fG=fSvg.append("g");
+const fZoom=d3.zoom().scaleExtent([.4,4]).on("zoom",e=>fG.attr("transform",e.transform));
+fSvg.call(fZoom);
+let trail=[];
+$("f-list").innerHTML=nodes.filter(n=>!n.wf).map(n=>`<option value="${esc(label(n))} #${n.id}">`).join("");
+$("f-search").addEventListener("change",e=>{const m=e.target.value.match(/#(\d+)\s*$/)||e.target.value.match(/^(\d+)$/);
+  let id=m?+m[1]:null; if(!id){const q=e.target.value.toLowerCase();const h=nodes.filter(n=>n.t.toLowerCase().includes(q)).sort((a,b)=>deg(b.id)-deg(a.id))[0];id=h&&h.id;}
+  if(id&&byId.has(id)){location.hash="focus-"+id;e.target.value="";}});
+$("f-hop").addEventListener("change",()=>focusOn(trail[trail.length-1],true));
+const SECT={cir:[200,300],sts:[-60,140],errata:[100,170],signal:[245,295]}; // degrees, 0 = right, clockwise (svg)
+function focusOn(id,keepTrail){
+  if(!byId.has(id)) return;
+  if(!keepTrail){const i=trail.indexOf(id); if(i>=0) trail=trail.slice(0,i+1); else trail.push(id); if(trail.length>8) trail=trail.slice(-8);}
+  $("f-crumbs").innerHTML=trail.map((t,i)=>`${i?"›":""}<button ${t===id?'aria-current="true"':`data-crumb="${t}"`}>${esc(label(byId.get(t)).replace(/\s*\(\d{4}-\d{2}\).*$/,'').slice(0,30))}</button>`).join("");
+  const box=$("f-canvas").getBoundingClientRect(), W=box.width, H=box.height;
+  const c=byId.get(id);
+  const nb=[...new Map(adj.get(id).map(a=>[a.id,a])).values()].map(a=>({...byId.get(a.id),rel:REL[a.type][a.dir],type:a.type})).filter(n=>!n.wf||n.k!=="sts");
+  // sectors: errata between sts and cir on bottom; adjust spans by counts
+  const groups=d3.group(nb,n=>n.k);
+  const spans={sts:[-75,95],errata:[100,155],cir:[160,250],signal:[255,285]};
+  if(!groups.get("cir")) {spans.sts=[-80,150];spans.errata=[155,200];spans.signal=[210,270];}
+  if(!groups.get("sts")) {spans.cir=[-80,170];spans.errata=[180,230];}
+  const r1=Math.max(120,Math.min(W*.26,H*.36)), pts=[];
+  for(const [k,arr] of groups){
+    arr.sort((a,b)=>a.s.localeCompare(b.s));
+    const [a0,a1]=spans[k], n=arr.length;
+    arr.forEach((m,i)=>{const t=(n===1?(a0+a1)/2:a0+(a1-a0)*(i/(n-1)))*Math.PI/180; const rr=r1*(n>28&&i%2?1.22:1);
+      pts.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,ang:t});});
+  }
+  const pos=new Map(pts.map(p=>[p.id,p])); pos.set(id,{...c,x:0,y:0});
+  // second hop
+  const hop=[];
+  if($("f-hop").checked){ pts.forEach(p=>adj.get(p.id).forEach(a=>{ if(a.id!==id&&!pos.has(a.id)&&!hop.some(h=>h.id===a.id)&&hop.length<160){const m=byId.get(a.id); if(m.wf) return; const j=hop.length; const t=p.ang+(((j%5)-2)*0.06); const rr=r1*1.55+(j%3)*14; hop.push({...m,x:Math.cos(t)*rr,y:Math.sin(t)*rr,via:p.id});}})); }
+  fG.selectAll("*").remove();
+  fG.append("circle").attr("class","ring").attr("r",r1);
+  if(hop.length) fG.append("circle").attr("class","ring").attr("r",r1*1.55);
+  // sector captions
+  for(const [k] of groups){const [a0,a1]=spans[k]; const t=((a0+a1)/2)*Math.PI/180; const rr=r1*0.74;
+    fG.append("text").attr("class","sector").attr("x",Math.cos(t)*rr).attr("y",Math.sin(t)*rr).attr("text-anchor","middle").attr("fill",kc(k)).style("fill",kc(k)).text(`${KIND[k].name} · ${groups.get(k).length}`);}
+  fG.append("g").selectAll("path").data(hop).join("path").attr("class","link").attr("stroke-opacity",.25).attr("d",h=>{const p=pos.get(h.via);return `M${p.x},${p.y}L${h.x},${h.y}`});
+  fG.append("g").selectAll("path").data(pts).join("path").attr("class",p=>"link "+p.type).attr("stroke-opacity",.7).attr("d",p=>`M0,0Q${p.x*.45},${p.y*.45*0.9} ${p.x},${p.y}`);
+  const all=[...hop.map(h=>({...h,hop:1})),...pts,{...c,x:0,y:0,center:1}];
+  const ng=fG.append("g").selectAll("g").data(all).join("g").attr("class","node").attr("transform",p=>`translate(${p.x},${p.y})`)
+    .attr("opacity",p=>p.hop?.55:1).on("click",(e,p)=>{renderDrawer(p.id); if(!p.center) location.hash="focus-"+p.id;});
+  ng.each(function(p){const g=d3.select(this), r=p.center?16:p.hop?3.5:7;
+    if(p.k==="cir") g.append("rect").attr("x",-r).attr("y",-r).attr("width",2*r).attr("height",2*r).attr("rx",2).attr("fill",kc(p.k));
+    else if(p.k==="errata") g.append("path").attr("d",d3.symbol(d3.symbolDiamond,r*r*3.2)()).attr("fill",kc(p.k));
+    else g.append("circle").attr("r",r).attr("fill",kc(p.k));
+    g.append("title").text(`#${p.id} ${p.t}${p.rel?"\n"+p.rel:""}`);
+  });
+  ng.filter(p=>!p.hop&&!p.center).append("text").attr("class","lbl").each(function(p){
+    const right=Math.cos(p.ang)>=-0.01; d3.select(this).attr("x",right?11:-11).attr("y",3.5).attr("text-anchor",right?"start":"end")
+      .text((p.k==="cir"?p.s.replace(/^CI([RD]) \(EU\) /,"CI$1 "):label(p)).slice(0,34)+((p.k==='cir'?p.s:label(p)).length>34?'…':''));});
+  fG.append("text").attr("class","lbl").attr("text-anchor","middle").attr("y",34).style("font-weight",600).style("font-size","13px").text(label(c).slice(0,60));
+  fG.append("text").attr("class","lbl").attr("text-anchor","middle").attr("y",50).style("fill","var(--muted)").text(`#${c.id} · ${KIND[c.k].name} · ${pts.length} links`);
+  // fit
+  const xs=d3.extent(all,p=>p.x), ys=d3.extent(all,p=>p.y);
+  const k=Math.min(W/(xs[1]-xs[0]+440),H/(ys[1]-ys[0]+90),1.4);
+  fSvg.transition().duration(450).call(fZoom.transform,d3.zoomIdentity.translate(W/2,H/2).scale(Math.max(k,.4)).translate(-(xs[0]+xs[1])/2,-(ys[0]+ys[1])/2));
+  renderDrawer(id);
+}
+document.addEventListener("click",e=>{const c=e.target.closest("[data-crumb]"); if(c) location.hash="focus-"+c.dataset.crumb;});
+
+// ---------- routing ----------
+let view="network", built={};
+function route(){
+  const h=location.hash.slice(1); let v=h||"network", fid=null;
+  const m=h.match(/^focus-(\d+)$/); if(m){v="focus";fid=+m[1];}
+  if(!["network","matrix","focus"].includes(v)) v="network";
+  view=v;
+  document.querySelectorAll("nav.tabs a").forEach(a=>a.toggleAttribute("aria-current",a.dataset.v===v)||a.dataset.v===v&&a.setAttribute("aria-current","page"));
+  document.querySelectorAll("nav.tabs a").forEach(a=>{if(a.dataset.v===v)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");});
+  ["network","matrix","focus"].forEach(x=>$("v-"+x).hidden=x!==v);
+  if(v==="network"&&!built.network){built.network=1;buildNetwork();}
+  if(v==="matrix"&&!built.matrix){built.matrix=1;buildMatrix();}
+  if(v==="focus"){ focusOn(fid||current||284); }
+  else renderDrawer(current);
+}
+function $(id){return document.getElementById(id)}
+window.addEventListener("hashchange",route);
+route();
+})();
+</script>
