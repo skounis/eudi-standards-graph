@@ -12,8 +12,10 @@ The page in `site/` has three views:
 
 Needs `gh` (signed in) and Python 3.
 
-    bash scripts/refresh.sh               # fetch issues, rebuild site/graph.json
-    python3 -m http.server -d site 8000   # then open http://localhost:8000
+    make start      # serve the page on http://localhost:8000 and open it
+    make refresh    # fetch issues, rebuild site/graph.json
+
+Without make: `bash scripts/refresh.sh`, then `python3 -m http.server -d site 8000`.
 
 ## How links are inferred
 
